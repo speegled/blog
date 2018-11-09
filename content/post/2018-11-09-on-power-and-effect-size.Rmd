@@ -1,0 +1,22 @@
+---
+title: On power and effect size
+author: Darrin Speegle
+date: '2018-11-09'
+slug: on-power-and-effect-size
+categories: []
+tags:
+  - power
+  - effect size
+  - simulation
+---
+
+### Introduction
+
+I have seen a lot of tweets on my feed about power and effect size. I wanted to think about those things carefully, so I did some reading and am writing down some thoughts. An interesting paper that I read on this is [here](http://www.stat.columbia.edu/~gelman/research/unpublished/power.pdf) The takeaway is that studies that are underpowered, yet still obtain statistically significant results, will tend to overestimate the effect size.
+
+### Simulations
+
+Let's imagine that we are doing a hypothesis test of $\mu = 0$ versus $\mu \not = 0$, and our underlying population is normal with mean 1 and standard deviation 10. If we take a sample of size 30 and test at the $\alpha = .05$ level, then our power is
+
+
+
