@@ -1,0 +1,324 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>LeaRning Stats</title>
+    <link>/</link>
+    <description>Recent content on LeaRning Stats</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>en-us</language>
+    <lastBuildDate>Thu, 01 Nov 2018 00:00:00 +0000</lastBuildDate>
+    
+        <atom:link href="/index.xml" rel="self" type="application/rss+xml" />
+    
+    
+    <item>
+      <title>Copula Sampling</title>
+      <link>/2018/11/01/copula-sampling/</link>
+      <pubDate>Thu, 01 Nov 2018 00:00:00 +0000</pubDate>
+      
+      <guid>/2018/11/01/copula-sampling/</guid>
+      <description>&lt;div id=&#34;introduction&#34; class=&#34;section level2&#34;&gt;
+&lt;h2&gt;Introduction&lt;/h2&gt;
+&lt;p&gt;I was reading about different ways to sample from distributions, and one that caught my eye was based on copulas. There is an answer &lt;a href=&#34;https://math.stackexchange.com/questions/2085292/how-to-sample-from-a-copula&#34;&gt;here&lt;/a&gt;, but there seemed to be enough details left to the reader that I wanted to just do it.&lt;/p&gt;
+&lt;div id=&#34;one-variable-example&#34; class=&#34;section level3&#34;&gt;
+&lt;h3&gt;One variable example&lt;/h3&gt;
+&lt;p&gt;To start, let’s remind ourselves about the “universality of the uniform” for one-dimensional data. If &lt;span class=&#34;math inline&#34;&gt;\(X\)&lt;/span&gt; is a (continuous) random variable with distribution function &lt;span class=&#34;math inline&#34;&gt;\(F\)&lt;/span&gt;, then &lt;span class=&#34;math inline&#34;&gt;\(F(X)\)&lt;/span&gt; is uniform(0, 1). Let’s illustrate this by sampling from an exponential rv with rate 1, applying &lt;span class=&#34;math inline&#34;&gt;\(F(x) = 1 - e^{-x}\)&lt;/span&gt; and plotting a histogram.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;exp_sample &amp;lt;- rexp(10000)
+transformed_data &amp;lt;- 1 - exp(-exp_sample)
+hist(transformed_data)&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;&lt;img src=&#34;/post/2018-11-01-copula-sampling_files/figure-html/unnamed-chunk-1-1.png&#34; width=&#34;672&#34; /&gt;&lt;/p&gt;
+&lt;p&gt;Looks convincingly uniform to me!&lt;/p&gt;
+&lt;p&gt;The flip side of this is that if we want to sample from an exponential rv, we can sample from a uniform(0,1) and apply &lt;span class=&#34;math inline&#34;&gt;\(F^{-1}\)&lt;/span&gt;. Note that in this case, &lt;span class=&#34;math inline&#34;&gt;\(F^{-1}(x) = \log \frac{1}{y - 1}\)&lt;/span&gt;.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;uniform_sample &amp;lt;- runif(10000, 0, 1)
+exp_sample &amp;lt;- log(1/(1 - uniform_sample))
+hist(exp_sample, probability = TRUE)
+curve(dexp(x), add = TRUE)&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;&lt;img src=&#34;/post/2018-11-01-copula-sampling_files/figure-html/unnamed-chunk-2-1.png&#34; width=&#34;672&#34; /&gt;&lt;/p&gt;
+&lt;p&gt;Convincing enough to me!&lt;/p&gt;
+&lt;/div&gt;
+&lt;div id=&#34;multivariate-example&#34; class=&#34;section level3&#34;&gt;
+&lt;h3&gt;Multivariate Example&lt;/h3&gt;
+&lt;p&gt;There is a higher dimensional version of the universality of the uniform, but it is trickier. Basically, if you start with &lt;span class=&#34;math inline&#34;&gt;\(X\)&lt;/span&gt; and &lt;span class=&#34;math inline&#34;&gt;\(Y\)&lt;/span&gt; with joint cdf &lt;span class=&#34;math inline&#34;&gt;\(F(x, y)\)&lt;/span&gt; and marginal distribution functions &lt;span class=&#34;math inline&#34;&gt;\(F_X\)&lt;/span&gt; and &lt;span class=&#34;math inline&#34;&gt;\(F_Y\)&lt;/span&gt;, then &lt;span class=&#34;math inline&#34;&gt;\(F_X(X)\)&lt;/span&gt; and &lt;span class=&#34;math inline&#34;&gt;\(F_Y(Y)\)&lt;/span&gt; are both uniform(0, 1). If &lt;span class=&#34;math inline&#34;&gt;\(X\)&lt;/span&gt; and &lt;span class=&#34;math inline&#34;&gt;\(Y\)&lt;/span&gt; are independent, then we can proceed as before, but if they are &lt;em&gt;dependent&lt;/em&gt;, then we need to encode that dependence. That’s where copulas come in.&lt;/p&gt;
+&lt;p&gt;We define the &lt;a href=&#34;https://en.wikipedia.org/wiki/Copula_(probability_theory)&#34;&gt;copula&lt;/a&gt; by &lt;span class=&#34;math display&#34;&gt;\[
+C(x, y) = P(F_X(X) \le x, F_Y(Y) \le y)
+\]&lt;/span&gt; Note that if &lt;span class=&#34;math inline&#34;&gt;\(X\)&lt;/span&gt; and &lt;span class=&#34;math inline&#34;&gt;\(Y\)&lt;/span&gt; are independent, then &lt;span class=&#34;math inline&#34;&gt;\(C(x,y) = xy\)&lt;/span&gt; since the probabilities just multiply (and remember &lt;span class=&#34;math inline&#34;&gt;\(F_X(X)\)&lt;/span&gt; is uniform(0, 1)!). However, in general, this will not be the case.&lt;/p&gt;
+&lt;p&gt;Let’s look at an example. We consider the joint density given by &lt;span class=&#34;math display&#34;&gt;\[
+f(x, y) = \begin{cases} 3x &amp;amp; 0\le y \le x \le 1 \\ 0&amp;amp;{\text{otherwise}} \end{cases}
+\]&lt;/span&gt; which has marginal distribution functions &lt;span class=&#34;math display&#34;&gt;\[
+F_X(x) = x^3
+\]&lt;/span&gt; and &lt;span class=&#34;math display&#34;&gt;\[
+F_Y(y) = \frac 32 y - \frac 12 y^3
+\]&lt;/span&gt; So, if we want to visualize a copula, we would need to sample from the original joint distribution: (I am using rejection sampling here)&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;sim_data &amp;lt;- matrix(c(0,0), ncol = 2)
+
+for(i in 1:10000) {
+  a &amp;lt;- runif(2)
+  if(runif(1,0,3) &amp;lt; 3*a[1] &amp;amp;&amp;amp; a[2] &amp;lt;= a[1])
+    sim_data &amp;lt;- rbind(sim_data, a) 
+}
+sim_data &amp;lt;- sim_data[-1,]&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;Then, we sample from &lt;span class=&#34;math inline&#34;&gt;\((F_X(X), F_Y(Y))\)&lt;/span&gt; by just applying &lt;span class=&#34;math inline&#34;&gt;\(F_X\)&lt;/span&gt; and &lt;span class=&#34;math inline&#34;&gt;\(F_Y\)&lt;/span&gt; coordinatewise:&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;sd2 &amp;lt;- sim_data
+sd2[,1] &amp;lt;- sd2[,1]^3
+sd2[,2] &amp;lt;- 3/2 * sd2[,2] - 1/2 * sd2[,2]^3&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;You can check that the marginals are approximately uniform by doing histograms, but what we really want to do is to visualize the copula, so we do a scatterplot of the copula:&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;plot(sd2)&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;&lt;img src=&#34;/post/2018-11-01-copula-sampling_files/figure-html/unnamed-chunk-5-1.png&#34; width=&#34;672&#34; /&gt; Or, we can do something fancier:&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;ggsd &amp;lt;- data.frame(sd2)
+names(ggsd) &amp;lt;- c(&amp;quot;x&amp;quot;, &amp;quot;y&amp;quot;)
+library(ggplot2)
+ggplot(ggsd, aes(x, y)) + 
+  geom_density2d(bins = 9)&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;&lt;img src=&#34;/post/2018-11-01-copula-sampling_files/figure-html/unnamed-chunk-6-1.png&#34; width=&#34;672&#34; /&gt;&lt;/p&gt;
+&lt;/div&gt;
+&lt;div id=&#34;doing-the-inverse&#34; class=&#34;section level3&#34;&gt;
+&lt;h3&gt;Doing the inverse!&lt;/h3&gt;
+&lt;p&gt;OK, now that I know what the heck a copula is (sort of), and have at least seen one in the wild, let’s turn to what I was actually interested in. I had heard that you can sample from joint distributions by sampling from the copula and then applying the inverse of the distribution functions to each variable separately. Well, that doesn’t sound so bad. But, how do you sample from the copula?&lt;/p&gt;
+&lt;p&gt;Let’s look at an example. Suppose that &lt;span class=&#34;math inline&#34;&gt;\(X\)&lt;/span&gt; and &lt;span class=&#34;math inline&#34;&gt;\(Y\)&lt;/span&gt; have joint density function given by &lt;span class=&#34;math display&#34;&gt;\[
+f(x, y) = \begin{cases} x + y &amp;amp; 0\le x \le 1, 0 \le y \le 1\\0&amp;amp; {\text{otherwise}}
+\end{cases}
+\]&lt;/span&gt; So the joint cdf is &lt;span class=&#34;math display&#34;&gt;\[
+F(x, y) = \frac {1}{2} \bigl(x^2 y + x y^2\bigr)
+\]&lt;/span&gt; and the marginal distribution functions are given by. &lt;span class=&#34;math display&#34;&gt;\[
+F_X(x) = F_Y(x) = \frac 12 \bigl(x^2 + x\bigr)
+\]&lt;/span&gt;&lt;/p&gt;
+&lt;p&gt;Now, we could just figure out the inverse of the functions &lt;span class=&#34;math inline&#34;&gt;\(F_X\)&lt;/span&gt; and &lt;span class=&#34;math inline&#34;&gt;\(F_Y\)&lt;/span&gt;, but I found this really cool answer &lt;a href=&#34;https://stackoverflow.com/questions/10081479/solving-for-the-inverse-of-a-function-in-r&#34;&gt;here&lt;/a&gt; by Mike Axiak. Thanks! I am just stealing it almost 100%, even to the point of not changing the parameters beyond making them work in my situation…&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;inverse = function (f, lower = -100, upper = 100) {
+  function (y) uniroot((function (x) f(x) - y), lower = lower, upper = upper)$root
+}
+
+FX_inverse &amp;lt;- inverse(function (x) x^2/2 + x/2, 0, 100) 
+FY_inverse &amp;lt;- FX_inverse&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;I went ahead and defined &lt;span class=&#34;math inline&#34;&gt;\(F_Y\)&lt;/span&gt; inverse, even though it is the same in this case. Now, we define the joint density function and the copula:&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;cc &amp;lt;- function(x, y) 1/2 * (x^2 * y + x * y^2) #joint density function
+cop &amp;lt;- function(u1, u2) cc(FX_inverse(u1), FY_inverse(u2)) #copula&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;Applying the answer I referenced above, we can sample from the copula in the following way. Note, it is very slow, but I am just looking for something that I understand at all.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;library(numDeriv)
+get_u1 &amp;lt;- function(u2, cop) {
+  ff &amp;lt;- function(x) cop(x, u2)
+  #library(numDeriv)
+  xs &amp;lt;- seq(0.01, 0.99, length.out = 100)
+  ys &amp;lt;- sapply(xs, function(z) {
+    u2 &amp;lt;- z
+    ff &amp;lt;- function(x) cop(x, u2)
+    grad(ff, z)
+  })
+  u1 &amp;lt;- xs[which.max(ys  &amp;gt; runif(1))]
+  u1
+}&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;So, to get a single sample from the copula, we would use&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;u2 &amp;lt;- runif(1)
+c(get_u1(u2, cop), u2)&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code&gt;## [1] 0.7029293 0.9642417&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;Now, let’s go get a Diet Coke from QuickTrip while we get 1000 samples from the copula.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;sim_data &amp;lt;- matrix(c(0, 0), ncol = 2)
+for(i in 1:1000) {
+  u2 &amp;lt;- runif(1)
+  sim_data &amp;lt;- rbind(sim_data, c(get_u1(u2, cop), u2))
+}&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;Then, to get a sample from the original data, we would just apply the inverse distribution functions. For some reason, I couldn’t get these to vectorize, so I am using &lt;code&gt;sapply&lt;/code&gt;.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;sample_data &amp;lt;- sim_data[-1,]
+sample_data[,1] &amp;lt;- sapply(sample_data[,1], function(x) FX_inverse(x))
+sample_data[,2] &amp;lt;- sapply(sample_data[,2], function(x) FY_inverse(x))
+plot(sample_data) #This is our sample from the distribution!&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;&lt;img src=&#34;/post/2018-11-01-copula-sampling_files/figure-html/unnamed-chunk-11-1.png&#34; width=&#34;672&#34; /&gt;&lt;/p&gt;
+&lt;p&gt;Another visualization:&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;ggsd &amp;lt;- data.frame(sample_data)
+names(ggsd) &amp;lt;- c(&amp;quot;x&amp;quot;, &amp;quot;y&amp;quot;)
+ggplot(ggsd, aes(x, y)) + 
+  geom_density2d(bins = 10)&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;&lt;img src=&#34;/post/2018-11-01-copula-sampling_files/figure-html/unnamed-chunk-12-1.png&#34; width=&#34;672&#34; /&gt;&lt;/p&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+</description>
+    </item>
+    
+    <item>
+      <title>Prediction Bands</title>
+      <link>/2018/04/07/prediction-bands/</link>
+      <pubDate>Sat, 07 Apr 2018 00:00:00 +0000</pubDate>
+      
+      <guid>/2018/04/07/prediction-bands/</guid>
+      <description>&lt;div id=&#34;introduction&#34; class=&#34;section level2&#34;&gt;
+&lt;h2&gt;Introduction&lt;/h2&gt;
+&lt;p&gt;In this post, we study a seemingly easy question; what is a 95% prediction interval in simple linear regression? We assume that our data comes from &lt;span class=&#34;math display&#34;&gt;\[
+y_i = 1 + 2x_i + \epsilon_i
+\]&lt;/span&gt; where &lt;span class=&#34;math inline&#34;&gt;\(\epsilon_i\)&lt;/span&gt; are iid normal with mean 0 and standard deviation 3.&lt;/p&gt;
+&lt;/div&gt;
+&lt;div id=&#34;r-code-for-prediction&#34; class=&#34;section level2&#34;&gt;
+&lt;h2&gt;R Code for Prediction&lt;/h2&gt;
+&lt;p&gt;We can build a linear model and prediction intervals using the following R code:&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;set.seed(4172018)
+x &amp;lt;- runif(30, 0, 10)
+y &amp;lt;- 1 + 2 * x + rnorm(30, 0, 3)
+mod &amp;lt;- lm(y~x)
+predict(mod, newdata = data.frame(x = 5), interval = &amp;quot;pre&amp;quot;)&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code&gt;##        fit      lwr      upr
+## 1 12.03934 6.313055 17.76562&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;We see that we have an estimate of 12 (true value: &lt;span class=&#34;math inline&#34;&gt;\(1 + 2 \times 5\)&lt;/span&gt;), a lower prediction bound of 6.3 and an upper of 17.8. What percentage of future observations will fall in this interval?&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;sim_dat &amp;lt;- replicate(10000, {
+  new_point &amp;lt;- 1 + 2 * 5 + rnorm(1, 0, 3)
+  new_point &amp;gt; 6.313055 &amp;amp;&amp;amp; new_point &amp;lt; 17.76562
+})
+mean(sim_dat)&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code&gt;## [1] 0.9281&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;We see that 9281 out of 10,000 future data points fall in this 95% prediction interval. Since we know the true way of generating data, we can compute the exact probability that future data will fall in this interval via:&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;pnorm(17.76562 , 11, 3) - pnorm(6.313055, 11, 3)&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code&gt;## [1] 0.9288329&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;What’s going on? How does constructing a 95% prediction interval lead to an interval that collects 92.88% of future data?&lt;/p&gt;
+&lt;/div&gt;
+&lt;div id=&#34;sampling-distribution&#34; class=&#34;section level2&#34;&gt;
+&lt;h2&gt;Sampling Distribution&lt;/h2&gt;
+&lt;p&gt;To understand this better, let’s estimate (via simulation) the sampling distribution of the probability that a prediction interval will contain future values.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;sampling_dist &amp;lt;- replicate(1000, {
+  x &amp;lt;- runif(30, 0, 10)
+  y &amp;lt;- 1 + 2 * x + rnorm(30, 0, 3)
+  mod &amp;lt;- lm(y~x)
+  pre &amp;lt;- predict(mod, newdata = data.frame(x = 5), interval = &amp;quot;pre&amp;quot;)
+  pnorm(pre[3], 11, 3) - pnorm(pre[2], 11, 3)
+})
+hist(sampling_dist)&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;&lt;img src=&#34;/post/2018-04-07-prediction-bands_files/figure-html/unnamed-chunk-4-1.png&#34; width=&#34;672&#34; /&gt;&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;min(sampling_dist) #Smallest percentage of future values in prediction interval&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code&gt;## [1] 0.7742589&lt;/code&gt;&lt;/pre&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;mean(sampling_dist) #Expected percentage of future values in prediction interval&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code&gt;## [1] 0.9506352&lt;/code&gt;&lt;/pre&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;mean(sampling_dist &amp;lt; 0.9) #percentage of times that prediction interval predicts less than 90% of future values&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code&gt;## [1] 0.084&lt;/code&gt;&lt;/pre&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;density(sampling_dist)$x[which.max(density(sampling_dist)$y)] #Most likely percentage of future values contained in prediction interval&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code&gt;## [1] 0.9673389&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;The histogram of attained probabilities that a prediction interval will contain future data explains what is going on. The probabilities have &lt;em&gt;expected value&lt;/em&gt; of 0.95, but the distribution is skew. The most likely outcome seems to be that the prediction interval contain about 97% of future data, but there is about a 8% chance that it will contain less than 90% of future data. The minimum amount of future data contained (in this sample size of 1000) is 77%!&lt;/p&gt;
+&lt;/div&gt;
+&lt;div id=&#34;sample-size&#34; class=&#34;section level2&#34;&gt;
+&lt;h2&gt;Sample Size&lt;/h2&gt;
+&lt;p&gt;I have heard people say that the benefit of having more samples is that the prediction intervals get narrower. That is true, but also true is that a 95% prediction interval is also much more likely to contain about 95% of future values! Let’s see what happens when we have 300 and 3000 data points, rather than 30:&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;/post/2018-04-07-prediction-bands_files/figure-html/unnamed-chunk-5-1.png&#34; width=&#34;672&#34; /&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;/post/2018-04-07-prediction-bands_files/figure-html/unnamed-chunk-6-1.png&#34; width=&#34;672&#34; /&gt;&lt;/p&gt;
+&lt;/div&gt;
+&lt;div id=&#34;table-of-standard-deviations&#34; class=&#34;section level2&#34;&gt;
+&lt;h2&gt;Table of Standard Deviations&lt;/h2&gt;
+&lt;p&gt;Finally, we estimate the standard deviation of the sampling distribution of the probability that a future value will be in a prediction interval for various sample sizes.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;sample_sizes &amp;lt;- c(10, 20, 50, 100, 200, 500, 1000, 2000, 5000)
+sds &amp;lt;- sapply(sample_sizes, function(n) {
+  sd(replicate(1000, {
+    x &amp;lt;- runif(n, 0, 10)
+    y &amp;lt;- 1 + 2 * x + rnorm(n, 0, 3)
+    mod &amp;lt;- lm(y~x)
+    pre &amp;lt;- predict(mod, newdata = data.frame(x = 5), interval = &amp;quot;pre&amp;quot;)
+    pnorm(pre[3], 11, 3) - pnorm(pre[2], 11, 3)
+  }))
+})
+knitr::kable(data.frame(`Sample Size` = sample_sizes, `Standard Dev` = sds))&lt;/code&gt;&lt;/pre&gt;
+&lt;table&gt;
+&lt;thead&gt;
+&lt;tr class=&#34;header&#34;&gt;
+&lt;th align=&#34;right&#34;&gt;Sample.Size&lt;/th&gt;
+&lt;th align=&#34;right&#34;&gt;Standard.Dev&lt;/th&gt;
+&lt;/tr&gt;
+&lt;/thead&gt;
+&lt;tbody&gt;
+&lt;tr class=&#34;odd&#34;&gt;
+&lt;td align=&#34;right&#34;&gt;10&lt;/td&gt;
+&lt;td align=&#34;right&#34;&gt;0.0705585&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr class=&#34;even&#34;&gt;
+&lt;td align=&#34;right&#34;&gt;20&lt;/td&gt;
+&lt;td align=&#34;right&#34;&gt;0.0386866&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr class=&#34;odd&#34;&gt;
+&lt;td align=&#34;right&#34;&gt;50&lt;/td&gt;
+&lt;td align=&#34;right&#34;&gt;0.0242093&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr class=&#34;even&#34;&gt;
+&lt;td align=&#34;right&#34;&gt;100&lt;/td&gt;
+&lt;td align=&#34;right&#34;&gt;0.0162205&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr class=&#34;odd&#34;&gt;
+&lt;td align=&#34;right&#34;&gt;200&lt;/td&gt;
+&lt;td align=&#34;right&#34;&gt;0.0117437&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr class=&#34;even&#34;&gt;
+&lt;td align=&#34;right&#34;&gt;500&lt;/td&gt;
+&lt;td align=&#34;right&#34;&gt;0.0071819&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr class=&#34;odd&#34;&gt;
+&lt;td align=&#34;right&#34;&gt;1000&lt;/td&gt;
+&lt;td align=&#34;right&#34;&gt;0.0050827&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr class=&#34;even&#34;&gt;
+&lt;td align=&#34;right&#34;&gt;2000&lt;/td&gt;
+&lt;td align=&#34;right&#34;&gt;0.0037369&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr class=&#34;odd&#34;&gt;
+&lt;td align=&#34;right&#34;&gt;5000&lt;/td&gt;
+&lt;td align=&#34;right&#34;&gt;0.0022930&lt;/td&gt;
+&lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;/div&gt;
+</description>
+    </item>
+    
+    <item>
+      <title>Correlation Between Groups and Predictors</title>
+      <link>/2018/02/04/correlation-between-groups-and-predictors/</link>
+      <pubDate>Sun, 04 Feb 2018 00:00:00 +0000</pubDate>
+      
+      <guid>/2018/02/04/correlation-between-groups-and-predictors/</guid>
+      <description>&lt;p&gt;In this, my first post, I discuss the paper by &lt;a href=&#34;http://www.stat.columbia.edu/~gelman/research/unpublished/Bafumi_Gelman_Midwest06.pdf&#34;&gt;Bafumi and Gelman.&lt;/a&gt; This paper explains why it is problematic if predictors and group effects correlate when doing mixed models, eg &lt;code&gt;lmer&lt;/code&gt;, and they also propose a solution.&lt;/p&gt;
+&lt;p&gt;I recently read the paper, and the code they used to create their plots wasn’t readily avaible to me (or, at least, I couldn’t find it). So, I decided to write my own and post it here, in case others are also interested.&lt;/p&gt;
+&lt;p&gt;The basic idea is that correlation between predictors and group effects can artificially &lt;strong&gt;decrease&lt;/strong&gt; p-values associated with the predictor, leading to effects that seem more significant than they are. Here are two examples:&lt;/p&gt;
+&lt;ol style=&#34;list-style-type: decimal&#34;&gt;
+&lt;li&gt;In this example, we have a predictor, response and grouping. There is no correlation between the grouping and the predictor, and there is a relationship between the predictor and the response.&lt;/li&gt;
+&lt;/ol&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;library(lme4)
+set.seed(2142018)
+no_corr &amp;lt;- replicate(1000, {
+  pred &amp;lt;- rnorm(100, 0, 2)
+  out &amp;lt;- pred + rnorm(100, 0, 7)
+  out &amp;lt;- c(rnorm(25,1,.001), rnorm(25, -1, .001), rnorm(25, 3, .001) , rnorm(25, 2, .001)) + out
+  df &amp;lt;- data.frame(pred = pred, out = out, units = factor(c(rep(x = 1,25), rep(2, 25), rep(3, 25), rep(4, 25))))
+  summary(invisible(lmer(out~(1|units) + pred, data = df)))$coefficients[2,3]
+})
+hist(no_corr)&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;&lt;img src=&#34;/post/2018-02-04-correlation-between-groups-and-predictors_files/figure-html/unnamed-chunk-1-1.png&#34; width=&#34;672&#34; /&gt;   2. Next, we see what happens when there is a correlation between the groups and the predictor. Everything else remains the same.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;yes_corr &amp;lt;- replicate(1000, {
+  pred &amp;lt;- rnorm(100, 0, 2) 
+  out &amp;lt;- pred + rnorm(100, 0, 7)
+  pred &amp;lt;- pred +  (c(rnorm(25,1,.001), rnorm(25, -1, .001), rnorm(25, 3, .001) , rnorm(25, 2, .001)))
+  out &amp;lt;-  (c(rnorm(25,1,.001), rnorm(25, -1, .001), rnorm(25, 3, .001) , rnorm(25, 2, .001))) + out
+  df &amp;lt;- data.frame(pred = pred, out = out, units = factor(c(rep(x = 1,25), rep(2, 25), rep(3, 25), rep(4, 25))))
+  summary(lmer(out~(1|units) + pred, data = df))$coefficients[2,3]
+})&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;Now, we compare the histograms of test statistics associated with the slope of the predictor variable in the two scenarios. As you can see, there is a difference in the two histograms, and the correlated version has significantly higher test statistcs overall.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;corr &amp;lt;- data.frame(no_corr = no_corr,
+                   yes_corr = yes_corr)
+library(ggplot2)
+library(dplyr)
+tidyr::gather(corr, key = &amp;quot;corr&amp;quot;, value = &amp;quot;t_stat&amp;quot;) %&amp;gt;% 
+  ggplot(aes(x = t_stat)) + 
+  geom_histogram() + 
+  facet_wrap(~corr)&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;&lt;img src=&#34;/post/2018-02-04-correlation-between-groups-and-predictors_files/figure-html/unnamed-chunk-3-1.png&#34; width=&#34;672&#34; /&gt;&lt;/p&gt;
+&lt;p&gt;Well, the histograms may not be that convincing, but the means are.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;mean(no_corr)&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code&gt;## [1] 2.879333&lt;/code&gt;&lt;/pre&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;mean(yes_corr)&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code&gt;## [1] 3.509314&lt;/code&gt;&lt;/pre&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;t.test(no_corr, yes_corr)&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code&gt;## 
+##  Welch Two Sample t-test
+## 
+## data:  no_corr and yes_corr
+## t = -13.39, df = 1996.4, p-value &amp;lt; 2.2e-16
+## alternative hypothesis: true difference in means is not equal to 0
+## 95 percent confidence interval:
+##  -0.7222483 -0.5377140
+## sample estimates:
+## mean of x mean of y 
+##  2.879333  3.509314&lt;/code&gt;&lt;/pre&gt;
+</description>
+    </item>
+    
+  </channel>
+</rss>

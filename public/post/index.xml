@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>Posts on LeaRning Stats</title>
+    <link>/post/</link>
+    <description>Recent content in Posts on LeaRning Stats</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>en-us</language>
+    <lastBuildDate>Thu, 01 Nov 2018 00:00:00 +0000</lastBuildDate>
+    
+	<atom:link href="/post/index.xml" rel="self" type="application/rss+xml" />
+    
+    
+    <item>
+      <title>Copula Sampling</title>
+      <link>/2018/11/01/copula-sampling/</link>
+      <pubDate>Thu, 01 Nov 2018 00:00:00 +0000</pubDate>
+      
+      <guid>/2018/11/01/copula-sampling/</guid>
+      <description>Introduction I was reading about different ways to sample from distributions, and one that caught my eye was based on copulas. There is an answer here, but there seemed to be enough details left to the reader that I wanted to just do it.
+One variable example To start, let’s remind ourselves about the “universality of the uniform” for one-dimensional data. If \(X\) is a (continuous) random variable with distribution function \(F\), then \(F(X)\) is uniform(0, 1).</description>
+    </item>
+    
+    <item>
+      <title>Prediction Bands</title>
+      <link>/2018/04/07/prediction-bands/</link>
+      <pubDate>Sat, 07 Apr 2018 00:00:00 +0000</pubDate>
+      
+      <guid>/2018/04/07/prediction-bands/</guid>
+      <description>Introduction In this post, we study a seemingly easy question; what is a 95% prediction interval in simple linear regression? We assume that our data comes from \[ y_i = 1 + 2x_i + \epsilon_i \] where \(\epsilon_i\) are iid normal with mean 0 and standard deviation 3.
+ R Code for Prediction We can build a linear model and prediction intervals using the following R code:
+set.seed(4172018) x &amp;lt;- runif(30, 0, 10) y &amp;lt;- 1 + 2 * x + rnorm(30, 0, 3) mod &amp;lt;- lm(y~x) predict(mod, newdata = data.</description>
+    </item>
+    
+    <item>
+      <title>Correlation Between Groups and Predictors</title>
+      <link>/2018/02/04/correlation-between-groups-and-predictors/</link>
+      <pubDate>Sun, 04 Feb 2018 00:00:00 +0000</pubDate>
+      
+      <guid>/2018/02/04/correlation-between-groups-and-predictors/</guid>
+      <description>In this, my first post, I discuss the paper by Bafumi and Gelman. This paper explains why it is problematic if predictors and group effects correlate when doing mixed models, eg lmer, and they also propose a solution.
+I recently read the paper, and the code they used to create their plots wasn’t readily avaible to me (or, at least, I couldn’t find it). So, I decided to write my own and post it here, in case others are also interested.</description>
+    </item>
+    
+  </channel>
+</rss>

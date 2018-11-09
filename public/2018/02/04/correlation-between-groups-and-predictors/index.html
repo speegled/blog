@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en-us">
+  <head>
+    <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="generator" content="Hugo 0.35" />
+
+
+<title>Correlation Between Groups and Predictors - LeaRning Stats</title>
+<meta property="og:title" content="Correlation Between Groups and Predictors - LeaRning Stats">
+
+
+
+  
+
+
+
+
+
+
+
+
+<link href='//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/github.min.css' rel='stylesheet' type='text/css' />
+
+
+
+<link rel="stylesheet" href="/css/fonts.css" media="all">
+<link rel="stylesheet" href="/css/main.css" media="all">
+
+
+
+  </head>
+  <body>
+    <div class="wrapper">
+      <header class="header">
+        <nav class="nav">
+  <a href="/" class="nav-logo">
+    <img src="/images/darrin.jpg"
+         width="50"
+         height="50"
+         alt="Logo">
+  </a>
+
+  <ul class="nav-links">
+    
+    <li><a href="/about/">About</a></li>
+    
+    <li><a href="/blogroll/">Blogroll</a></li>
+    
+    <li><a href="https://github.com/speegled">GitHub</a></li>
+    
+    <li><a href="/">Home</a></li>
+    
+    <li><a href="https://twitter.com/speegled">Twitter</a></li>
+    
+  </ul>
+</nav>
+
+      </header>
+
+
+<main class="content" role="main">
+
+  <article class="article">
+    
+    <span class="article-duration">3 min read</span>
+    
+
+    <h1 class="article-title">Correlation Between Groups and Predictors</h1>
+
+    
+    <span class="article-date">2018/02/04</span>
+    
+
+    <div class="article-content">
+      <p>In this, my first post, I discuss the paper by <a href="http://www.stat.columbia.edu/~gelman/research/unpublished/Bafumi_Gelman_Midwest06.pdf">Bafumi and Gelman.</a> This paper explains why it is problematic if predictors and group effects correlate when doing mixed models, eg <code>lmer</code>, and they also propose a solution.</p>
+<p>I recently read the paper, and the code they used to create their plots wasn’t readily avaible to me (or, at least, I couldn’t find it). So, I decided to write my own and post it here, in case others are also interested.</p>
+<p>The basic idea is that correlation between predictors and group effects can artificially <strong>decrease</strong> p-values associated with the predictor, leading to effects that seem more significant than they are. Here are two examples:</p>
+<ol style="list-style-type: decimal">
+<li>In this example, we have a predictor, response and grouping. There is no correlation between the grouping and the predictor, and there is a relationship between the predictor and the response.</li>
+</ol>
+<pre class="r"><code>library(lme4)
+set.seed(2142018)
+no_corr &lt;- replicate(1000, {
+  pred &lt;- rnorm(100, 0, 2)
+  out &lt;- pred + rnorm(100, 0, 7)
+  out &lt;- c(rnorm(25,1,.001), rnorm(25, -1, .001), rnorm(25, 3, .001) , rnorm(25, 2, .001)) + out
+  df &lt;- data.frame(pred = pred, out = out, units = factor(c(rep(x = 1,25), rep(2, 25), rep(3, 25), rep(4, 25))))
+  summary(invisible(lmer(out~(1|units) + pred, data = df)))$coefficients[2,3]
+})
+hist(no_corr)</code></pre>
+<p><img src="/post/2018-02-04-correlation-between-groups-and-predictors_files/figure-html/unnamed-chunk-1-1.png" width="672" />   2. Next, we see what happens when there is a correlation between the groups and the predictor. Everything else remains the same.</p>
+<pre class="r"><code>yes_corr &lt;- replicate(1000, {
+  pred &lt;- rnorm(100, 0, 2) 
+  out &lt;- pred + rnorm(100, 0, 7)
+  pred &lt;- pred +  (c(rnorm(25,1,.001), rnorm(25, -1, .001), rnorm(25, 3, .001) , rnorm(25, 2, .001)))
+  out &lt;-  (c(rnorm(25,1,.001), rnorm(25, -1, .001), rnorm(25, 3, .001) , rnorm(25, 2, .001))) + out
+  df &lt;- data.frame(pred = pred, out = out, units = factor(c(rep(x = 1,25), rep(2, 25), rep(3, 25), rep(4, 25))))
+  summary(lmer(out~(1|units) + pred, data = df))$coefficients[2,3]
+})</code></pre>
+<p>Now, we compare the histograms of test statistics associated with the slope of the predictor variable in the two scenarios. As you can see, there is a difference in the two histograms, and the correlated version has significantly higher test statistcs overall.</p>
+<pre class="r"><code>corr &lt;- data.frame(no_corr = no_corr,
+                   yes_corr = yes_corr)
+library(ggplot2)
+library(dplyr)
+tidyr::gather(corr, key = &quot;corr&quot;, value = &quot;t_stat&quot;) %&gt;% 
+  ggplot(aes(x = t_stat)) + 
+  geom_histogram() + 
+  facet_wrap(~corr)</code></pre>
+<p><img src="/post/2018-02-04-correlation-between-groups-and-predictors_files/figure-html/unnamed-chunk-3-1.png" width="672" /></p>
+<p>Well, the histograms may not be that convincing, but the means are.</p>
+<pre class="r"><code>mean(no_corr)</code></pre>
+<pre><code>## [1] 2.879333</code></pre>
+<pre class="r"><code>mean(yes_corr)</code></pre>
+<pre><code>## [1] 3.509314</code></pre>
+<pre class="r"><code>t.test(no_corr, yes_corr)</code></pre>
+<pre><code>## 
+##  Welch Two Sample t-test
+## 
+## data:  no_corr and yes_corr
+## t = -13.39, df = 1996.4, p-value &lt; 2.2e-16
+## alternative hypothesis: true difference in means is not equal to 0
+## 95 percent confidence interval:
+##  -0.7222483 -0.5377140
+## sample estimates:
+## mean of x mean of y 
+##  2.879333  3.509314</code></pre>
+
+    </div>
+  </article>
+
+  
+
+
+</main>
+
+      <footer class="footer">
+        <ul class="footer-links">
+          <li>
+            <a href="/index.xml" type="application/rss+xml" target="_blank">RSS feed</a>
+          </li>
+          <li>
+            <a href="https://gohugo.io/" class="footer-links-kudos">Made with <img src="/images/hugo-logo.png" alt="Img link to Hugo website" width="22" height="22"></a>
+          </li>
+        </ul>
+      </footer>
+
+    </div>
+    
+
+
+
+<script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/highlight.min.js"></script>
+
+
+
+<script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/languages/r.min.js"></script>
+<script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/languages/yaml.min.js"></script>
+<script>hljs.configure({languages: []}); hljs.initHighlightingOnLoad();</script>
+
+
+
+    
+<script src="/js/math-code.js"></script>
+<script async src="//cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-MML-AM_CHTML"></script>
+
+
+    
+  </body>
+</html>
+

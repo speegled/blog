@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en-us">
+  <head>
+    <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="generator" content="Hugo 0.35" />
+
+
+<title>Copula Sampling - LeaRning Stats</title>
+<meta property="og:title" content="Copula Sampling - LeaRning Stats">
+
+
+
+  
+
+
+
+
+
+
+
+
+<link href='//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/github.min.css' rel='stylesheet' type='text/css' />
+
+
+
+<link rel="stylesheet" href="/css/fonts.css" media="all">
+<link rel="stylesheet" href="/css/main.css" media="all">
+
+
+
+  </head>
+  <body>
+    <div class="wrapper">
+      <header class="header">
+        <nav class="nav">
+  <a href="/" class="nav-logo">
+    <img src="/images/darrin.jpg"
+         width="50"
+         height="50"
+         alt="Logo">
+  </a>
+
+  <ul class="nav-links">
+    
+    <li><a href="/about/">About</a></li>
+    
+    <li><a href="/blogroll/">Blogroll</a></li>
+    
+    <li><a href="https://github.com/speegled">GitHub</a></li>
+    
+    <li><a href="/">Home</a></li>
+    
+    <li><a href="https://twitter.com/speegled">Twitter</a></li>
+    
+  </ul>
+</nav>
+
+      </header>
+
+
+<main class="content" role="main">
+
+  <article class="article">
+    
+    <span class="article-duration">5 min read</span>
+    
+
+    <h1 class="article-title">Copula Sampling</h1>
+
+    
+    <span class="article-date">2018/11/01</span>
+    
+
+    <div class="article-content">
+      <div id="introduction" class="section level2">
+<h2>Introduction</h2>
+<p>I was reading about different ways to sample from distributions, and one that caught my eye was based on copulas. There is an answer <a href="https://math.stackexchange.com/questions/2085292/how-to-sample-from-a-copula">here</a>, but there seemed to be enough details left to the reader that I wanted to just do it.</p>
+<div id="one-variable-example" class="section level3">
+<h3>One variable example</h3>
+<p>To start, let’s remind ourselves about the “universality of the uniform” for one-dimensional data. If <span class="math inline">\(X\)</span> is a (continuous) random variable with distribution function <span class="math inline">\(F\)</span>, then <span class="math inline">\(F(X)\)</span> is uniform(0, 1). Let’s illustrate this by sampling from an exponential rv with rate 1, applying <span class="math inline">\(F(x) = 1 - e^{-x}\)</span> and plotting a histogram.</p>
+<pre class="r"><code>exp_sample &lt;- rexp(10000)
+transformed_data &lt;- 1 - exp(-exp_sample)
+hist(transformed_data)</code></pre>
+<p><img src="/post/2018-11-01-copula-sampling_files/figure-html/unnamed-chunk-1-1.png" width="672" /></p>
+<p>Looks convincingly uniform to me!</p>
+<p>The flip side of this is that if we want to sample from an exponential rv, we can sample from a uniform(0,1) and apply <span class="math inline">\(F^{-1}\)</span>. Note that in this case, <span class="math inline">\(F^{-1}(x) = \log \frac{1}{y - 1}\)</span>.</p>
+<pre class="r"><code>uniform_sample &lt;- runif(10000, 0, 1)
+exp_sample &lt;- log(1/(1 - uniform_sample))
+hist(exp_sample, probability = TRUE)
+curve(dexp(x), add = TRUE)</code></pre>
+<p><img src="/post/2018-11-01-copula-sampling_files/figure-html/unnamed-chunk-2-1.png" width="672" /></p>
+<p>Convincing enough to me!</p>
+</div>
+<div id="multivariate-example" class="section level3">
+<h3>Multivariate Example</h3>
+<p>There is a higher dimensional version of the universality of the uniform, but it is trickier. Basically, if you start with <span class="math inline">\(X\)</span> and <span class="math inline">\(Y\)</span> with joint cdf <span class="math inline">\(F(x, y)\)</span> and marginal distribution functions <span class="math inline">\(F_X\)</span> and <span class="math inline">\(F_Y\)</span>, then <span class="math inline">\(F_X(X)\)</span> and <span class="math inline">\(F_Y(Y)\)</span> are both uniform(0, 1). If <span class="math inline">\(X\)</span> and <span class="math inline">\(Y\)</span> are independent, then we can proceed as before, but if they are <em>dependent</em>, then we need to encode that dependence. That’s where copulas come in.</p>
+<p>We define the <a href="https://en.wikipedia.org/wiki/Copula_(probability_theory)">copula</a> by <span class="math display">\[
+C(x, y) = P(F_X(X) \le x, F_Y(Y) \le y)
+\]</span> Note that if <span class="math inline">\(X\)</span> and <span class="math inline">\(Y\)</span> are independent, then <span class="math inline">\(C(x,y) = xy\)</span> since the probabilities just multiply (and remember <span class="math inline">\(F_X(X)\)</span> is uniform(0, 1)!). However, in general, this will not be the case.</p>
+<p>Let’s look at an example. We consider the joint density given by <span class="math display">\[
+f(x, y) = \begin{cases} 3x &amp; 0\le y \le x \le 1 \\ 0&amp;{\text{otherwise}} \end{cases}
+\]</span> which has marginal distribution functions <span class="math display">\[
+F_X(x) = x^3
+\]</span> and <span class="math display">\[
+F_Y(y) = \frac 32 y - \frac 12 y^3
+\]</span> So, if we want to visualize a copula, we would need to sample from the original joint distribution: (I am using rejection sampling here)</p>
+<pre class="r"><code>sim_data &lt;- matrix(c(0,0), ncol = 2)
+
+for(i in 1:10000) {
+  a &lt;- runif(2)
+  if(runif(1,0,3) &lt; 3*a[1] &amp;&amp; a[2] &lt;= a[1])
+    sim_data &lt;- rbind(sim_data, a) 
+}
+sim_data &lt;- sim_data[-1,]</code></pre>
+<p>Then, we sample from <span class="math inline">\((F_X(X), F_Y(Y))\)</span> by just applying <span class="math inline">\(F_X\)</span> and <span class="math inline">\(F_Y\)</span> coordinatewise:</p>
+<pre class="r"><code>sd2 &lt;- sim_data
+sd2[,1] &lt;- sd2[,1]^3
+sd2[,2] &lt;- 3/2 * sd2[,2] - 1/2 * sd2[,2]^3</code></pre>
+<p>You can check that the marginals are approximately uniform by doing histograms, but what we really want to do is to visualize the copula, so we do a scatterplot of the copula:</p>
+<pre class="r"><code>plot(sd2)</code></pre>
+<p><img src="/post/2018-11-01-copula-sampling_files/figure-html/unnamed-chunk-5-1.png" width="672" /> Or, we can do something fancier:</p>
+<pre class="r"><code>ggsd &lt;- data.frame(sd2)
+names(ggsd) &lt;- c(&quot;x&quot;, &quot;y&quot;)
+library(ggplot2)
+ggplot(ggsd, aes(x, y)) + 
+  geom_density2d(bins = 9)</code></pre>
+<p><img src="/post/2018-11-01-copula-sampling_files/figure-html/unnamed-chunk-6-1.png" width="672" /></p>
+</div>
+<div id="doing-the-inverse" class="section level3">
+<h3>Doing the inverse!</h3>
+<p>OK, now that I know what the heck a copula is (sort of), and have at least seen one in the wild, let’s turn to what I was actually interested in. I had heard that you can sample from joint distributions by sampling from the copula and then applying the inverse of the distribution functions to each variable separately. Well, that doesn’t sound so bad. But, how do you sample from the copula?</p>
+<p>Let’s look at an example. Suppose that <span class="math inline">\(X\)</span> and <span class="math inline">\(Y\)</span> have joint density function given by <span class="math display">\[
+f(x, y) = \begin{cases} x + y &amp; 0\le x \le 1, 0 \le y \le 1\\0&amp; {\text{otherwise}}
+\end{cases}
+\]</span> So the joint cdf is <span class="math display">\[
+F(x, y) = \frac {1}{2} \bigl(x^2 y + x y^2\bigr)
+\]</span> and the marginal distribution functions are given by. <span class="math display">\[
+F_X(x) = F_Y(x) = \frac 12 \bigl(x^2 + x\bigr)
+\]</span></p>
+<p>Now, we could just figure out the inverse of the functions <span class="math inline">\(F_X\)</span> and <span class="math inline">\(F_Y\)</span>, but I found this really cool answer <a href="https://stackoverflow.com/questions/10081479/solving-for-the-inverse-of-a-function-in-r">here</a> by Mike Axiak. Thanks! I am just stealing it almost 100%, even to the point of not changing the parameters beyond making them work in my situation…</p>
+<pre class="r"><code>inverse = function (f, lower = -100, upper = 100) {
+  function (y) uniroot((function (x) f(x) - y), lower = lower, upper = upper)$root
+}
+
+FX_inverse &lt;- inverse(function (x) x^2/2 + x/2, 0, 100) 
+FY_inverse &lt;- FX_inverse</code></pre>
+<p>I went ahead and defined <span class="math inline">\(F_Y\)</span> inverse, even though it is the same in this case. Now, we define the joint density function and the copula:</p>
+<pre class="r"><code>cc &lt;- function(x, y) 1/2 * (x^2 * y + x * y^2) #joint density function
+cop &lt;- function(u1, u2) cc(FX_inverse(u1), FY_inverse(u2)) #copula</code></pre>
+<p>Applying the answer I referenced above, we can sample from the copula in the following way. Note, it is very slow, but I am just looking for something that I understand at all.</p>
+<pre class="r"><code>library(numDeriv)
+get_u1 &lt;- function(u2, cop) {
+  ff &lt;- function(x) cop(x, u2)
+  #library(numDeriv)
+  xs &lt;- seq(0.01, 0.99, length.out = 100)
+  ys &lt;- sapply(xs, function(z) {
+    u2 &lt;- z
+    ff &lt;- function(x) cop(x, u2)
+    grad(ff, z)
+  })
+  u1 &lt;- xs[which.max(ys  &gt; runif(1))]
+  u1
+}</code></pre>
+<p>So, to get a single sample from the copula, we would use</p>
+<pre class="r"><code>u2 &lt;- runif(1)
+c(get_u1(u2, cop), u2)</code></pre>
+<pre><code>## [1] 0.7029293 0.9642417</code></pre>
+<p>Now, let’s go get a Diet Coke from QuickTrip while we get 1000 samples from the copula.</p>
+<pre class="r"><code>sim_data &lt;- matrix(c(0, 0), ncol = 2)
+for(i in 1:1000) {
+  u2 &lt;- runif(1)
+  sim_data &lt;- rbind(sim_data, c(get_u1(u2, cop), u2))
+}</code></pre>
+<p>Then, to get a sample from the original data, we would just apply the inverse distribution functions. For some reason, I couldn’t get these to vectorize, so I am using <code>sapply</code>.</p>
+<pre class="r"><code>sample_data &lt;- sim_data[-1,]
+sample_data[,1] &lt;- sapply(sample_data[,1], function(x) FX_inverse(x))
+sample_data[,2] &lt;- sapply(sample_data[,2], function(x) FY_inverse(x))
+plot(sample_data) #This is our sample from the distribution!</code></pre>
+<p><img src="/post/2018-11-01-copula-sampling_files/figure-html/unnamed-chunk-11-1.png" width="672" /></p>
+<p>Another visualization:</p>
+<pre class="r"><code>ggsd &lt;- data.frame(sample_data)
+names(ggsd) &lt;- c(&quot;x&quot;, &quot;y&quot;)
+ggplot(ggsd, aes(x, y)) + 
+  geom_density2d(bins = 10)</code></pre>
+<p><img src="/post/2018-11-01-copula-sampling_files/figure-html/unnamed-chunk-12-1.png" width="672" /></p>
+</div>
+</div>
+
+    </div>
+  </article>
+
+  
+
+
+</main>
+
+      <footer class="footer">
+        <ul class="footer-links">
+          <li>
+            <a href="/index.xml" type="application/rss+xml" target="_blank">RSS feed</a>
+          </li>
+          <li>
+            <a href="https://gohugo.io/" class="footer-links-kudos">Made with <img src="/images/hugo-logo.png" alt="Img link to Hugo website" width="22" height="22"></a>
+          </li>
+        </ul>
+      </footer>
+
+    </div>
+    
+
+
+
+<script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/highlight.min.js"></script>
+
+
+
+<script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/languages/r.min.js"></script>
+<script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/languages/yaml.min.js"></script>
+<script>hljs.configure({languages: []}); hljs.initHighlightingOnLoad();</script>
+
+
+
+    
+<script src="/js/math-code.js"></script>
+<script async src="//cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-MML-AM_CHTML"></script>
+
+
+    
+  </body>
+</html>
+

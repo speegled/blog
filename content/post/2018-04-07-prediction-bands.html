@@ -1,0 +1,131 @@
+---
+title: Prediction Bands
+author: Darrin Speegle
+date: '2018-04-07'
+slug: prediction-bands
+categories: []
+tags:
+  - regression 
+  - simulation
+  - R
+---
+
+
+
+<div id="introduction" class="section level2">
+<h2>Introduction</h2>
+<p>In this post, we study a seemingly easy question; what is a 95% prediction interval in simple linear regression? We assume that our data comes from <span class="math display">\[
+y_i = 1 + 2x_i + \epsilon_i
+\]</span> where <span class="math inline">\(\epsilon_i\)</span> are iid normal with mean 0 and standard deviation 3.</p>
+</div>
+<div id="r-code-for-prediction" class="section level2">
+<h2>R Code for Prediction</h2>
+<p>We can build a linear model and prediction intervals using the following R code:</p>
+<pre class="r"><code>set.seed(4172018)
+x &lt;- runif(30, 0, 10)
+y &lt;- 1 + 2 * x + rnorm(30, 0, 3)
+mod &lt;- lm(y~x)
+predict(mod, newdata = data.frame(x = 5), interval = &quot;pre&quot;)</code></pre>
+<pre><code>##        fit      lwr      upr
+## 1 12.03934 6.313055 17.76562</code></pre>
+<p>We see that we have an estimate of 12 (true value: <span class="math inline">\(1 + 2 \times 5\)</span>), a lower prediction bound of 6.3 and an upper of 17.8. What percentage of future observations will fall in this interval?</p>
+<pre class="r"><code>sim_dat &lt;- replicate(10000, {
+  new_point &lt;- 1 + 2 * 5 + rnorm(1, 0, 3)
+  new_point &gt; 6.313055 &amp;&amp; new_point &lt; 17.76562
+})
+mean(sim_dat)</code></pre>
+<pre><code>## [1] 0.9281</code></pre>
+<p>We see that 9281 out of 10,000 future data points fall in this 95% prediction interval. Since we know the true way of generating data, we can compute the exact probability that future data will fall in this interval via:</p>
+<pre class="r"><code>pnorm(17.76562 , 11, 3) - pnorm(6.313055, 11, 3)</code></pre>
+<pre><code>## [1] 0.9288329</code></pre>
+<p>What’s going on? How does constructing a 95% prediction interval lead to an interval that collects 92.88% of future data?</p>
+</div>
+<div id="sampling-distribution" class="section level2">
+<h2>Sampling Distribution</h2>
+<p>To understand this better, let’s estimate (via simulation) the sampling distribution of the probability that a prediction interval will contain future values.</p>
+<pre class="r"><code>sampling_dist &lt;- replicate(1000, {
+  x &lt;- runif(30, 0, 10)
+  y &lt;- 1 + 2 * x + rnorm(30, 0, 3)
+  mod &lt;- lm(y~x)
+  pre &lt;- predict(mod, newdata = data.frame(x = 5), interval = &quot;pre&quot;)
+  pnorm(pre[3], 11, 3) - pnorm(pre[2], 11, 3)
+})
+hist(sampling_dist)</code></pre>
+<p><img src="/post/2018-04-07-prediction-bands_files/figure-html/unnamed-chunk-4-1.png" width="672" /></p>
+<pre class="r"><code>min(sampling_dist) #Smallest percentage of future values in prediction interval</code></pre>
+<pre><code>## [1] 0.7742589</code></pre>
+<pre class="r"><code>mean(sampling_dist) #Expected percentage of future values in prediction interval</code></pre>
+<pre><code>## [1] 0.9506352</code></pre>
+<pre class="r"><code>mean(sampling_dist &lt; 0.9) #percentage of times that prediction interval predicts less than 90% of future values</code></pre>
+<pre><code>## [1] 0.084</code></pre>
+<pre class="r"><code>density(sampling_dist)$x[which.max(density(sampling_dist)$y)] #Most likely percentage of future values contained in prediction interval</code></pre>
+<pre><code>## [1] 0.9673389</code></pre>
+<p>The histogram of attained probabilities that a prediction interval will contain future data explains what is going on. The probabilities have <em>expected value</em> of 0.95, but the distribution is skew. The most likely outcome seems to be that the prediction interval contain about 97% of future data, but there is about a 8% chance that it will contain less than 90% of future data. The minimum amount of future data contained (in this sample size of 1000) is 77%!</p>
+</div>
+<div id="sample-size" class="section level2">
+<h2>Sample Size</h2>
+<p>I have heard people say that the benefit of having more samples is that the prediction intervals get narrower. That is true, but also true is that a 95% prediction interval is also much more likely to contain about 95% of future values! Let’s see what happens when we have 300 and 3000 data points, rather than 30:</p>
+<p><img src="/post/2018-04-07-prediction-bands_files/figure-html/unnamed-chunk-5-1.png" width="672" /></p>
+<p><img src="/post/2018-04-07-prediction-bands_files/figure-html/unnamed-chunk-6-1.png" width="672" /></p>
+</div>
+<div id="table-of-standard-deviations" class="section level2">
+<h2>Table of Standard Deviations</h2>
+<p>Finally, we estimate the standard deviation of the sampling distribution of the probability that a future value will be in a prediction interval for various sample sizes.</p>
+<pre class="r"><code>sample_sizes &lt;- c(10, 20, 50, 100, 200, 500, 1000, 2000, 5000)
+sds &lt;- sapply(sample_sizes, function(n) {
+  sd(replicate(1000, {
+    x &lt;- runif(n, 0, 10)
+    y &lt;- 1 + 2 * x + rnorm(n, 0, 3)
+    mod &lt;- lm(y~x)
+    pre &lt;- predict(mod, newdata = data.frame(x = 5), interval = &quot;pre&quot;)
+    pnorm(pre[3], 11, 3) - pnorm(pre[2], 11, 3)
+  }))
+})
+knitr::kable(data.frame(`Sample Size` = sample_sizes, `Standard Dev` = sds))</code></pre>
+<table>
+<thead>
+<tr class="header">
+<th align="right">Sample.Size</th>
+<th align="right">Standard.Dev</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="right">10</td>
+<td align="right">0.0705585</td>
+</tr>
+<tr class="even">
+<td align="right">20</td>
+<td align="right">0.0386866</td>
+</tr>
+<tr class="odd">
+<td align="right">50</td>
+<td align="right">0.0242093</td>
+</tr>
+<tr class="even">
+<td align="right">100</td>
+<td align="right">0.0162205</td>
+</tr>
+<tr class="odd">
+<td align="right">200</td>
+<td align="right">0.0117437</td>
+</tr>
+<tr class="even">
+<td align="right">500</td>
+<td align="right">0.0071819</td>
+</tr>
+<tr class="odd">
+<td align="right">1000</td>
+<td align="right">0.0050827</td>
+</tr>
+<tr class="even">
+<td align="right">2000</td>
+<td align="right">0.0037369</td>
+</tr>
+<tr class="odd">
+<td align="right">5000</td>
+<td align="right">0.0022930</td>
+</tr>
+</tbody>
+</table>
+</div>
