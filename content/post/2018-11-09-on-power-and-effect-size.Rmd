@@ -93,7 +93,7 @@ mean(abs(sim_data$cohensd))
 
 ### Sample size
 
-I haven't done the math on how power and bias in estimattion effect size are related. I tought, though, that the sample size might also play a roll. So, I ran an analysis of *relative* error in effect size estimate for different sample sizes and different powers. Then, I plotted them below. You can see the (ugly) code I used to do this on my [github account](https://github.com/speegled/blog) if you are so inclined. Bottom line, turns out I was wrong. The bias in the estimation of effect size seems to only depend on the power of the test. The standard error in the estimation of the effect size will depend on the sample size, though, so there is still a benefit to having a larger sample size even with the same power.
+I haven't done the math on how power and bias in estimation of effect size are related. I tought, though, that the sample size might also play a roll. So, I ran an analysis of *relative* error in effect size estimate for different sample sizes and different powers. Then, I plotted them below. You can see the (ugly) code I used to do this on my [github account](https://github.com/speegled/blog) if you are so inclined. Bottom line, turns out I was wrong. The bias in the estimation of effect size seems to only depend on the power of the test. The standard error in the estimation of the effect size will depend on the sample size, though, so there is still a benefit to having a larger sample size even with the same power.
 
 
 ```{r, cache = TRUE, echo = FALSE}
