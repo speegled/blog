@@ -6,10 +6,100 @@
     <description>Recent content on LeaRning Stats</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en-us</language>
-    <lastBuildDate>Thu, 01 Nov 2018 00:00:00 +0000</lastBuildDate>
+    <lastBuildDate>Fri, 09 Nov 2018 00:00:00 +0000</lastBuildDate>
     
         <atom:link href="/index.xml" rel="self" type="application/rss+xml" />
     
+    
+    <item>
+      <title>On power and effect size</title>
+      <link>/2018/11/09/on-power-and-effect-size/</link>
+      <pubDate>Fri, 09 Nov 2018 00:00:00 +0000</pubDate>
+      
+      <guid>/2018/11/09/on-power-and-effect-size/</guid>
+      <description>&lt;div id=&#34;introduction&#34; class=&#34;section level3&#34;&gt;
+&lt;h3&gt;Introduction&lt;/h3&gt;
+&lt;p&gt;I have seen a lot of tweets on my feed about power and effect size. I wanted to think about those things carefully, so I did some reading and am writing down some thoughts. An interesting paper that I read on this is &lt;a href=&#34;http://www.stat.columbia.edu/~gelman/research/unpublished/power.pdf&#34;&gt;here&lt;/a&gt; The takeaway is that studies that are underpowered, yet still obtain statistically significant results, will tend to overestimate the effect size.&lt;/p&gt;
+&lt;/div&gt;
+&lt;div id=&#34;simulations&#34; class=&#34;section level3&#34;&gt;
+&lt;h3&gt;Simulations&lt;/h3&gt;
+&lt;p&gt;Let’s imagine that we are doing a hypothesis test of &lt;span class=&#34;math inline&#34;&gt;\(\mu = 0\)&lt;/span&gt; versus &lt;span class=&#34;math inline&#34;&gt;\(\mu \not = 0\)&lt;/span&gt;, and our underlying population is normal with mean 1 and standard deviation 3. If we take a sample of size 30 and test at the &lt;span class=&#34;math inline&#34;&gt;\(\alpha = .05\)&lt;/span&gt; level, then our power is about 42%. We note that the true (Cohen’s &lt;span class=&#34;math inline&#34;&gt;\(d\)&lt;/span&gt;) effect size here is 1/3.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;power.t.test(n = 30, delta = 1, sd = 3, sig.level = .05, type = &amp;quot;one&amp;quot;)&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code&gt;## 
+##      One-sample t test power calculation 
+## 
+##               n = 30
+##           delta = 1
+##              sd = 3
+##       sig.level = 0.05
+##           power = 0.4228091
+##     alternative = two.sided&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;OK, now let’s run some simulations. This takes a sample of size 30 from normal with mean 1 and sd 3, and does a t-test. If it is significant at the &lt;span class=&#34;math inline&#34;&gt;\(\alpha = .05\)&lt;/span&gt; level, then the mean and sd are computed of the original data.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;dat &amp;lt;- rnorm(30, 1, 3)
+library(dplyr)
+library(ggplot2)
+sim_data &amp;lt;- do.call(rbind.data.frame, lapply(1:10000, function(x) {
+  dat &amp;lt;- rnorm(30, 1, 3)
+  if(t.test(dat)$p.value &amp;lt; .05) { 
+       data.frame(mean = mean(dat), sd = sd(dat))
+  } else {
+       data.frame(mean = NA, sd = NA)
+  }
+})) %&amp;gt;% tidyr::drop_na()&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;Now, let’s see what the Cohen’s &lt;span class=&#34;math inline&#34;&gt;\(d\)&lt;/span&gt; values were, for the significant tests.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;sim_data &amp;lt;- mutate(sim_data, cohensd = mean/sd)
+hist(sim_data$cohensd)&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;&lt;img src=&#34;/post/2018-11-09-on-power-and-effect-size_files/figure-html/unnamed-chunk-3-1.png&#34; width=&#34;672&#34; /&gt; As we can see, the most likely outcome is just under 0.5, rather than the true value of 1/3. So, this is a biased way of computing Cohen’s &lt;span class=&#34;math inline&#34;&gt;\(d\)&lt;/span&gt;.&lt;/p&gt;
+&lt;p&gt;The mean Cohen’s &lt;span class=&#34;math inline&#34;&gt;\(d\)&lt;/span&gt; is&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;mean(sim_data$cohensd)&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code&gt;## [1] 0.5225447&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;Now, let’s compare that to the case that the test has power of 0.8.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;power.t.test(delta = 1, sd = 3, sig.level = .05, power = 0.8, type = &amp;quot;one&amp;quot;)&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code&gt;## 
+##      One-sample t test power calculation 
+## 
+##               n = 72.58407
+##           delta = 1
+##              sd = 3
+##       sig.level = 0.05
+##           power = 0.8
+##     alternative = two.sided&lt;/code&gt;&lt;/pre&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;sim_data &amp;lt;- do.call(rbind.data.frame, lapply(1:10000, function(x) {
+  dat &amp;lt;- rnorm(73, 1, 3)
+  if(t.test(dat)$p.value &amp;lt; .05) { 
+       data.frame(mean = mean(dat), sd = sd(dat))
+  } else {
+       data.frame(mean = NA, sd = NA)
+  }
+})) %&amp;gt;% tidyr::drop_na()
+sim_data &amp;lt;- mutate(sim_data, cohensd = mean/sd)
+hist(sim_data$cohensd)&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;&lt;img src=&#34;/post/2018-11-09-on-power-and-effect-size_files/figure-html/unnamed-chunk-6-1.png&#34; width=&#34;672&#34; /&gt;&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;mean(sim_data$cohensd)&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code&gt;## [1] 0.3783282&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;Still biased, but now the most likely outcome is a value that is approximately correct.&lt;/p&gt;
+&lt;p&gt;Finally, we show an example where the test is really underpowered; that is, &lt;span class=&#34;math inline&#34;&gt;\(H_0\)&lt;/span&gt; is actually true.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;sim_data &amp;lt;- do.call(rbind.data.frame, lapply(1:10000, function(x) {
+  dat &amp;lt;- rnorm(100, 0, 3)
+  if(t.test(dat)$p.value &amp;lt; .05) { 
+       data.frame(mean = mean(dat), sd = sd(dat))
+  } else {
+       data.frame(mean = NA, sd = NA)
+  }
+})) %&amp;gt;% tidyr::drop_na()
+sim_data &amp;lt;- mutate(sim_data, cohensd = mean/sd)
+hist(sim_data$cohensd)&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;&lt;img src=&#34;/post/2018-11-09-on-power-and-effect-size_files/figure-html/unnamed-chunk-7-1.png&#34; width=&#34;672&#34; /&gt;&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;mean(abs(sim_data$cohensd))&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code&gt;## [1] 0.2380721&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+&lt;div id=&#34;sample-size&#34; class=&#34;section level3&#34;&gt;
+&lt;h3&gt;Sample size&lt;/h3&gt;
+&lt;p&gt;I haven’t done the math on how power and bias in estimattion effect size are related. I tought, though, that the sample size might also play a roll. So, I ran an analysis of &lt;em&gt;relative&lt;/em&gt; error in effect size estimate for different sample sizes and different powers. Then, I plotted them below. You can see the (ugly) code I used to do this on my &lt;a href=&#34;https://github.com/speegled/blog&#34;&gt;github account&lt;/a&gt; if you are so inclined. Bottom line, turns out I was wrong. The bias in the estimation of effect size seems to only depend on the power of the test. The standard error in the estimation of the effect size will depend on the sample size, though, so there is still a benefit to having a larger sample size even with the same power.&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;/post/2018-11-09-on-power-and-effect-size_files/figure-html/unnamed-chunk-11-1.png&#34; width=&#34;672&#34; /&gt;&lt;/p&gt;
+&lt;/div&gt;
+</description>
+    </item>
     
     <item>
       <title>Copula Sampling</title>

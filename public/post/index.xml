@@ -6,10 +6,20 @@
     <description>Recent content in Posts on LeaRning Stats</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en-us</language>
-    <lastBuildDate>Thu, 01 Nov 2018 00:00:00 +0000</lastBuildDate>
+    <lastBuildDate>Fri, 09 Nov 2018 00:00:00 +0000</lastBuildDate>
     
 	<atom:link href="/post/index.xml" rel="self" type="application/rss+xml" />
     
+    
+    <item>
+      <title>On power and effect size</title>
+      <link>/2018/11/09/on-power-and-effect-size/</link>
+      <pubDate>Fri, 09 Nov 2018 00:00:00 +0000</pubDate>
+      
+      <guid>/2018/11/09/on-power-and-effect-size/</guid>
+      <description>Introduction I have seen a lot of tweets on my feed about power and effect size. I wanted to think about those things carefully, so I did some reading and am writing down some thoughts. An interesting paper that I read on this is here The takeaway is that studies that are underpowered, yet still obtain statistically significant results, will tend to overestimate the effect size.
+ Simulations Let’s imagine that we are doing a hypothesis test of \(\mu = 0\) versus \(\mu \not = 0\), and our underlying population is normal with mean 1 and standard deviation 3.</description>
+    </item>
     
     <item>
       <title>Copula Sampling</title>

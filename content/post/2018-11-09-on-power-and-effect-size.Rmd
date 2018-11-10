@@ -16,7 +16,161 @@ I have seen a lot of tweets on my feed about power and effect size. I wanted to 
 
 ### Simulations
 
-Let's imagine that we are doing a hypothesis test of $\mu = 0$ versus $\mu \not = 0$, and our underlying population is normal with mean 1 and standard deviation 10. If we take a sample of size 30 and test at the $\alpha = .05$ level, then our power is
+Let's imagine that we are doing a hypothesis test of $\mu = 0$ versus $\mu \not = 0$, and our underlying population is normal with mean 1 and standard deviation 3. If we take a sample of size 30 and test at the $\alpha = .05$ level, then our power is about 42%. We note that the true (Cohen's $d$) effect size here is 1/3.  
+
+```{r}
+power.t.test(n = 30, delta = 1, sd = 3, sig.level = .05, type = "one")
+```
+
+OK, now let's run some simulations. This takes a sample of size 30 from normal with mean 1 and sd 3, and does a t-test. If it is significant at the $\alpha = .05$ level, then the mean and sd are computed of the original data. 
+
+```{r, message=FALSE, warning=FALSE}
+dat <- rnorm(30, 1, 3)
+library(dplyr)
+library(ggplot2)
+sim_data <- do.call(rbind.data.frame, lapply(1:10000, function(x) {
+  dat <- rnorm(30, 1, 3)
+  if(t.test(dat)$p.value < .05) { 
+       data.frame(mean = mean(dat), sd = sd(dat))
+  } else {
+       data.frame(mean = NA, sd = NA)
+  }
+})) %>% tidyr::drop_na()
+
+```
+
+Now, let's see what the Cohen's $d$ values were, for the significant tests.
+
+```{r}
+sim_data <- mutate(sim_data, cohensd = mean/sd)
+hist(sim_data$cohensd)
+```
+As we can see, the most likely outcome is just under 0.5, rather than the true value of 1/3. So, this is a biased way of computing Cohen's $d$. 
+
+The mean Cohen's $d$ is 
+```{r}
+mean(sim_data$cohensd)
+```
+
+Now, let's compare that to the case that the test has power of 0.8.
+
+```{r}
+power.t.test(delta = 1, sd = 3, sig.level = .05, power = 0.8, type = "one")
+```
+
+```{r}
+sim_data <- do.call(rbind.data.frame, lapply(1:10000, function(x) {
+  dat <- rnorm(73, 1, 3)
+  if(t.test(dat)$p.value < .05) { 
+       data.frame(mean = mean(dat), sd = sd(dat))
+  } else {
+       data.frame(mean = NA, sd = NA)
+  }
+})) %>% tidyr::drop_na()
+sim_data <- mutate(sim_data, cohensd = mean/sd)
+hist(sim_data$cohensd)
+mean(sim_data$cohensd)
+```
+Still biased, but now the most likely outcome is a value that is approximately correct. 
+
+Finally, we show an example where the test is really underpowered; that is, $H_0$ is actually true.
+
+```{r}
+sim_data <- do.call(rbind.data.frame, lapply(1:10000, function(x) {
+  dat <- rnorm(100, 0, 3)
+  if(t.test(dat)$p.value < .05) { 
+       data.frame(mean = mean(dat), sd = sd(dat))
+  } else {
+       data.frame(mean = NA, sd = NA)
+  }
+})) %>% tidyr::drop_na()
+sim_data <- mutate(sim_data, cohensd = mean/sd)
+hist(sim_data$cohensd)
+mean(abs(sim_data$cohensd))
+```
 
 
 
+### Sample size
+
+I haven't done the math on how power and bias in estimattion effect size are related. I tought, though, that the sample size might also play a roll. So, I ran an analysis of *relative* error in effect size estimate for different sample sizes and different powers. Then, I plotted them below. You can see the (ugly) code I used to do this on my [github account](https://github.com/speegled/blog) if you are so inclined. Bottom line, turns out I was wrong. The bias in the estimation of effect size seems to only depend on the power of the test. The standard error in the estimation of the effect size will depend on the sample size, though, so there is still a benefit to having a larger sample size even with the same power.
+
+
+```{r, cache = TRUE, echo = FALSE}
+means <- seq(0, 1, length.out = 20)
+for_plot <- do.call(rbind.data.frame, lapply(means, function(x) {
+  sim_data <- do.call(rbind.data.frame, lapply(1:400, function(y) {
+  dat <- rnorm(30, x, 1)
+  if(t.test(dat)$p.value < .05) { 
+       data.frame(mean = mean(dat), sd = sd(dat))
+  } else {
+       data.frame(mean = NA, sd = NA)
+  }
+  })) %>% tidyr::drop_na()
+  sim_data <- mutate(sim_data, cohensd = mean/sd)
+  data.frame(mean = mean(abs(sim_data$cohensd)), sd = sd(abs(sim_data$cohensd)), true_size = x)
+}))
+for_plot$rel_error <- for_plot$mean/for_plot$true_size
+for_plot$power <- power.t.test(n = 30, delta = means, sd = 1, sig.level = .05, type = "one")$power
+#library(ggplot2)
+#ggplot(for_plot, aes(x = power, y = rel_error)) + geom_line() + 
+#  geom_abline(slope = 0, intercept = 1, linetype = "dashed")
+```
+
+```{r, cache = TRUE, echo = FALSE}
+sample_size <- 100
+means <- seq(0, 0.5, length.out = 20)
+for_plot_100 <- do.call(rbind.data.frame, lapply(means, function(x) {
+  sim_data <- do.call(rbind.data.frame, lapply(1:400, function(y) {
+  dat <- rnorm(sample_size, x, 1)
+  if(t.test(dat)$p.value < .05) { 
+       data.frame(mean = mean(dat), sd = sd(dat))
+  } else {
+       data.frame(mean = NA, sd = NA)
+  }
+  })) %>% tidyr::drop_na()
+  sim_data <- mutate(sim_data, cohensd = mean/sd)
+  data.frame(mean = mean(abs(sim_data$cohensd)), sd = sd(abs(sim_data$cohensd)), true_size = x)
+}))
+for_plot_100$rel_error <- for_plot_100$mean/for_plot_100$true_size
+for_plot_100$power <- power.t.test(n = sample_size, delta = means, sd = 1, sig.level = .05, type = "one")$power
+#library(ggplot2)
+#ggplot(for_plot_100, aes(x = power, y = rel_error)) + geom_line() + 
+#  geom_abline(slope = 0, intercept = 1, linetype = "dashed")
+```
+
+
+
+```{r, cache = TRUE, echo = FALSE}
+sample_size <- 1000
+means <- seq(0, 0.15, length.out = 20)
+for_plot_1000 <- do.call(rbind.data.frame, lapply(means, function(x) {
+  sim_data <- do.call(rbind.data.frame, lapply(1:400, function(y) {
+  dat <- rnorm(sample_size, x, 1)
+  if(t.test(dat)$p.value < .05) { 
+       data.frame(mean = mean(dat), sd = sd(dat))
+  } else {
+       data.frame(mean = NA, sd = NA)
+  }
+  })) %>% tidyr::drop_na()
+  sim_data <- mutate(sim_data, cohensd = mean/sd)
+  data.frame(mean = mean(abs(sim_data$cohensd)), sd = sd(abs(sim_data$cohensd)), true_size = x)
+}))
+for_plot_1000$rel_error <- for_plot_1000$mean/for_plot_1000$true_size
+for_plot_1000$power <- power.t.test(n = sample_size, delta = means, sd = 1, sig.level = .05, type = "one")$power
+library(ggplot2)
+#ggplot(for_plot_1000, aes(x = power, y = rel_error)) + geom_line() + 
+#  geom_abline(slope = 0, intercept = 1, linetype = "dashed")
+```
+
+
+```{r, echo = FALSE}
+for_plot$sample_size <- 30
+for_plot_100$sample_size <- 100
+for_plot_1000$sample_size <- 1000
+plot_data <- rbind(for_plot, for_plot_100, for_plot_1000)
+ggplot(plot_data, aes(x = power, y = rel_error, color = factor(sample_size))) + geom_line() + 
+  geom_abline(slope = 0, intercept = 1, linetype = "dashed") +
+  labs(color = "sample size", y = "relative error") 
+  
+```
